@@ -50,6 +50,11 @@ func NewClient(protocol string, uri string) (*Client, error) {
 	return &Client{conn: conn, protocol: protocol, uri: uri}, nil
 }
 
+// RemoteAddr is a wrapper around the conn's RemoteAddr func.
+func (c *Client) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
+}
+
 // Write is used to implement io.Writer. Operations on a closed connection
 // result in an immediate failure. Otherwise, it defers to the underlying
 // `net.Conn`. **NOTE** this method has no knowledge of the structure of the
@@ -59,6 +64,14 @@ func (c *Client) Write(b []byte) (n int, err error) {
 		return 0, errConnectionClosed
 	}
 	return c.conn.Write(b)
+}
+
+// WriteMeta is used to write the metadata to the connection.
+func (c *Client) WriteMeta(meta Metadata) (n int, err error) {
+	if c.closed {
+		return 0, errConnectionClosed
+	}
+	return c.Write(meta.Encode())
 }
 
 // WriteData is used as a convenience wrapper around the Write operation. It

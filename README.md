@@ -38,6 +38,14 @@ order:
 | 4        | 100          | String         | Content type                                                        |
 | 5        | 100          | String         | Name of the endpoint to handle the request (used to route requests) |
 
+Keep in mind that the header is only supposed to handle low-level metadata. This
+would mean stuff like dispatching a request to the applicable endpoint, telling
+the server how big the payload is, and other basic information. If you need your
+own information that is not supplied already, there's nothing preventing you
+from creating your own header from within the request body itself, or
+implementing your own protocol on top of this. We do not process the request
+body in any way, so it will be available verbatim.
+
 ### Endpoint Types
 
 There are two possible types of endpoints:
@@ -64,6 +72,12 @@ it could be used as an `io.Reader` or `io.Writer` in streaming connections. The
 only real requirement is that the first communication with the server must be a
 metadata header, so that the server knows how to dispatch the connection. Some
 functions automate this, if you want to take advantage of it.
+
+## Performance
+
+I am not happy with performance, yet. It should probably get quite a bit faster,
+but I need to do some more profiling and benchmarking to see where the
+bottlenecks are. Stay tuned!
 
 ## TODO
 

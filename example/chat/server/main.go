@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -8,6 +9,15 @@ import (
 	"syscall"
 
 	"github.com/mylanconnolly/srv"
+)
+
+type client chan<- string
+
+var (
+	clients  = make(map[client]struct{})
+	entering = make(chan client)
+	leaving  = make(chan client)
+	messages = make(chan string)
 )
 
 func main() {
@@ -20,7 +30,29 @@ func main() {
 	s.Log = true
 
 	s.AddStreamingEndpoint("message", func(meta srv.Metadata, client *srv.Client) error {
-		return nil
+		ch := make(chan string)
+
+		go func() {
+			for msg := range ch {
+				fmt.Fprintln(client, msg)
+			}
+		}()
+
+		who := client.RemoteAddr().String()
+
+		ch <- "You are " + who
+		messages <- who + " has arrived"
+		entering <- ch
+
+		input := bufio.NewScanner(client)
+
+		for input.Scan() {
+			messages <- who + ": " + input.Text()
+		}
+		leaving <- ch
+		messages <- who + " has left"
+
+		return client.Close()
 	})
 
 	go func() {
@@ -36,6 +68,15 @@ func main() {
 
 	for {
 		select {
+		case msg := <-messages:
+			for cli := range clients {
+				cli <- msg
+			}
+		case cli := <-entering:
+			clients[cli] = struct{}{}
+		case cli := <-leaving:
+			delete(clients, cli)
+			close(cli)
 		case sig := <-quit:
 			log.Println("Caught signal", sig, "shutting down...")
 			s.Shutdown()

@@ -36,12 +36,13 @@ func NewServer(protocol, uri string) (*Server, error) {
 		return nil, errInvalidProtocol
 	}
 	return &Server{
-		MaxRetries:       10,
-		protocol:         protocol,
-		uri:              uri,
-		requestEndpoints: map[string]RequestEndpoint{},
-		willShutdown:     make(chan struct{}),
-		didShutdown:      make(chan struct{}),
+		MaxRetries:         10,
+		protocol:           protocol,
+		uri:                uri,
+		requestEndpoints:   map[string]RequestEndpoint{},
+		streamingEndpoints: map[string]StreamingEndpoint{},
+		willShutdown:       make(chan struct{}),
+		didShutdown:        make(chan struct{}),
 	}, nil
 }
 
@@ -226,9 +227,14 @@ func (s *Server) handleConn(conn net.Conn) {
 	for {
 		meta, err = client.ReadMeta()
 
-		if err != nil {
-			s.logReadError(err, "Unable to read metadata")
+		switch err {
+		case io.EOF:
 			return
+		case errConnectionClosed:
+			return
+		case nil:
+		default:
+			s.logReadError(err, "Unable to read metadata")
 		}
 		switch meta.EndpointType {
 		case EndpointRequest:
