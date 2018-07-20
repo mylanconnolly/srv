@@ -145,16 +145,11 @@ func (s *Server) listenTCP() error {
 
 		switch e := err.(type) {
 		case net.Error:
-			if e.Timeout() {
-				continue
-			}
-			if e.Temporary() {
-				if tries > s.MaxRetries {
-					return e
-				}
-				timeout, tries = incrementRetries(timeout, tries)
-				time.Sleep(timeout)
-				continue
+			timeout, tries, e = s.handleNetError(timeout, tries, e)
+
+			if e != nil {
+				conn.Close()
+				return e
 			}
 		default:
 			if err != nil {
@@ -166,7 +161,23 @@ func (s *Server) listenTCP() error {
 	}
 }
 
+func (s *Server) handleNetError(timeout time.Duration, tries int, err net.Error) (time.Duration, int, net.Error) {
+	if err.Timeout() {
+		return timeout, tries, nil
+	}
+	if err.Temporary() {
+		if tries > s.MaxRetries {
+			return timeout, tries, err
+		}
+		timeout, tries = incrementRetries(timeout, tries)
+		time.Sleep(timeout)
+		return timeout, tries, nil
+	}
+	return timeout, tries, err
+}
+
 func (s *Server) listenUnix() error {
+	timeout, tries := defaultRetries()
 	addr, err := net.ResolveUnixAddr(ProtocolUnix, s.uri)
 
 	if err != nil {
@@ -193,6 +204,13 @@ func (s *Server) listenUnix() error {
 		conn, err := listener.AcceptUnix()
 
 		switch e := err.(type) {
+		case net.Error:
+			timeout, tries, e = s.handleNetError(timeout, tries, e)
+
+			if e != nil {
+				conn.Close()
+				return e
+			}
 		default:
 			if err != nil {
 				conn.Close()

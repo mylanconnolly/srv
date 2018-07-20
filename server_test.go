@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"os"
@@ -126,6 +127,78 @@ func TestIncrementTries(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestServerMaybeLogf(t *testing.T) {
+	tests := []struct {
+		name   string
+		server *Server
+	}{
+		{"empty server", &Server{}},
+		{"logging set to true", &Server{Log: true}},
+		{"logging set to false", &Server{Log: false}},
+	}
+	// We can't run these tests in parallel.
+
+	// Capture logging output so we can inspect it
+	out := bytes.Buffer{}
+	log.SetOutput(&out)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ilen := out.Len()
+
+			tt.server.maybeLogf("something %v", "foo")
+
+			if tt.server.Log {
+				if out.Len() == ilen {
+					t.Error("Did not log message when we expected it to")
+				}
+			} else {
+				if out.Len() > ilen {
+					t.Error("Logged message when we did not expect it to")
+				}
+			}
+		})
+	}
+	// Set the logging output back to normal
+	log.SetOutput(os.Stderr)
+}
+
+func TestServerMaybeLogln(t *testing.T) {
+	tests := []struct {
+		name   string
+		server *Server
+	}{
+		{"empty server", &Server{}},
+		{"logging set to true", &Server{Log: true}},
+		{"logging set to false", &Server{Log: false}},
+	}
+	// We can't run these tests in parallel.
+
+	// Capture logging output so we can inspect it
+	out := bytes.Buffer{}
+	log.SetOutput(&out)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ilen := out.Len()
+
+			tt.server.maybeLogln("something")
+
+			if tt.server.Log {
+				if out.Len() == ilen {
+					t.Error("Did not log message when we expected it to")
+				}
+			} else {
+				if out.Len() > ilen {
+					t.Error("Logged message when we did not expect it to")
+				}
+			}
+		})
+	}
+	// Set the logging output back to normal
+	log.SetOutput(os.Stderr)
 }
 
 func BenchmarkEchoServerSharedConnections(b *testing.B) {
