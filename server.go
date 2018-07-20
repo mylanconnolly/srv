@@ -24,14 +24,21 @@ var (
 // NewServer is used to return a default Server.
 func NewServer(protocol, uri string) (*Server, error) {
 	switch protocol {
-	case ProtocolTCP, ProtocolUnix:
+	case ProtocolTCP:
+		if _, err := net.ResolveTCPAddr(ProtocolTCP, uri); err != nil {
+			return nil, err
+		}
+	case ProtocolUnix:
+		if _, err := net.ResolveUnixAddr(ProtocolUnix, uri); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, errInvalidProtocol
 	}
 	return &Server{
 		MaxRetries:       10,
-		Protocol:         protocol,
-		URI:              uri,
+		protocol:         protocol,
+		uri:              uri,
 		requestEndpoints: map[string]RequestEndpoint{},
 		willShutdown:     make(chan struct{}),
 		didShutdown:      make(chan struct{}),
@@ -42,11 +49,11 @@ func NewServer(protocol, uri string) (*Server, error) {
 type Server struct {
 	MaxRetries int
 	MaxTimeout time.Duration
-	Protocol   string
-	URI        string
 	Log        bool
 
 	// Internal fields; used to keep track of connection state, etc.
+	protocol           string
+	uri                string
 	requestEndpoints   map[string]RequestEndpoint   // A map of endpoints, representing all the possible handlers for requests.
 	streamingEndpoints map[string]StreamingEndpoint // A map of streaming endpionts, representing all the possible handlers for streaming requests.
 	willShutdown       chan struct{}                // Notifies the listen process that we should shutdown.
@@ -69,7 +76,7 @@ func (s *Server) AddStreamingEndpoint(name string, endpoint StreamingEndpoint) {
 // ListenTLS is used to listen for requests using TLS encryption. This is only
 // possible when using TCP.
 func (s *Server) ListenTLS(cert, key, ca string) error {
-	switch s.Protocol {
+	switch s.protocol {
 	case ProtocolTCP:
 		return s.listenTCPTLS(cert, key, ca)
 	default:
@@ -79,7 +86,7 @@ func (s *Server) ListenTLS(cert, key, ca string) error {
 
 // Listen is used to listen for requests on the specified URI and protocol.
 func (s *Server) Listen() error {
-	switch s.Protocol {
+	switch s.protocol {
 	case ProtocolTCP:
 		return s.listenTCP()
 	case ProtocolUnix:
@@ -110,7 +117,7 @@ func (s *Server) listenTCPTLS(cert, key, ca string) error {
 
 func (s *Server) listenTCP() error {
 	timeout, tries := defaultRetries()
-	addr, err := net.ResolveTCPAddr(ProtocolTCP, s.URI)
+	addr, err := net.ResolveTCPAddr(ProtocolTCP, s.uri)
 
 	if err != nil {
 		return err
@@ -121,7 +128,7 @@ func (s *Server) listenTCP() error {
 		return err
 	}
 	if s.Log {
-		log.Printf("Listening for requests on tcp://%s", s.URI)
+		log.Printf("Listening for requests on tcp://%s", s.uri)
 	}
 	defer listener.Close()
 
@@ -160,7 +167,7 @@ func (s *Server) listenTCP() error {
 }
 
 func (s *Server) listenUnix() error {
-	addr, err := net.ResolveUnixAddr(ProtocolUnix, s.URI)
+	addr, err := net.ResolveUnixAddr(ProtocolUnix, s.uri)
 
 	if err != nil {
 		return err
@@ -171,7 +178,7 @@ func (s *Server) listenUnix() error {
 		return err
 	}
 	if s.Log {
-		log.Printf("Listening for requests on unix://%s", s.URI)
+		log.Printf("Listening for requests on unix://%s", s.uri)
 	}
 	defer listener.Close()
 

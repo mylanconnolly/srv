@@ -11,6 +11,47 @@ import (
 	"time"
 )
 
+func TestNewServer(t *testing.T) {
+	tests := []struct {
+		name     string
+		protocol string
+		uri      string
+		wantErr  bool
+	}{
+		{"invalid protocol", "foo", "127.0.0.1:1234", true},
+		{"invalid URI", "tcp", "-", true},
+	}
+	for _, tt := range tests {
+		tt := tt
+
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			server, err := NewServer(tt.protocol, tt.uri)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Should return an error")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Should not return an error, got %v", err)
+				}
+				if server == nil {
+					t.Errorf("Server should not be nil")
+					return
+				}
+				if server.protocol != tt.protocol {
+					t.Errorf("Server protocol = %v, want %v", server.protocol, tt.protocol)
+				}
+				if server.uri != tt.uri {
+					t.Errorf("Server uri = %v, want %v", server.uri, tt.uri)
+				}
+			}
+		})
+	}
+}
+
 func TestNewDeadline(t *testing.T) {
 	tests := []struct {
 		name     string
