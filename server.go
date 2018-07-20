@@ -128,9 +128,8 @@ func (s *Server) listenTCP() error {
 	if err != nil {
 		return err
 	}
-	if s.Log {
-		log.Printf("Listening for requests on tcp://%s", s.uri)
-	}
+	s.maybeLogf("Listening for requests on tcp://%s", s.uri)
+
 	defer listener.Close()
 
 	for {
@@ -178,9 +177,8 @@ func (s *Server) listenUnix() error {
 	if err != nil {
 		return err
 	}
-	if s.Log {
-		log.Printf("Listening for requests on unix://%s", s.uri)
-	}
+	s.maybeLogf("Listening for requests on unix://%s", s.uri)
+
 	defer listener.Close()
 
 	for {
@@ -238,15 +236,14 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 		switch meta.EndpointType {
 		case EndpointRequest:
-			if err = s.handleRequestConn(meta, client); err != nil {
-				return
-			}
+			err = s.handleRequestConn(meta, client)
 		case EndpointStream:
-			if err = s.handleStreamingConn(meta, client); err != nil {
-				return
-			}
+			err = s.handleStreamingConn(meta, client)
 		default:
 			s.maybeLogf("Invalid endpoint type specified: %v", meta.EndpointType)
+			return
+		}
+		if err != nil {
 			return
 		}
 	}
@@ -282,7 +279,7 @@ func (s *Server) handleRequestConn(meta Metadata, client *Client) error {
 		s.maybeLogf("Error serving endpoint: %v", err)
 		return err
 	}
-	if _, err := client.WriteData(meta.Endpoint, wbuf.Bytes()); err != nil {
+	if _, err = client.WriteData(meta.Endpoint, wbuf.Bytes()); err != nil {
 		s.maybeLogf("Error writing response: %v", err)
 		return err
 	}
