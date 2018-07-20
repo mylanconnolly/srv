@@ -1,9 +1,11 @@
 package srv
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"math"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -98,6 +100,8 @@ func BenchmarkEchoServerSharedConnections(b *testing.B) {
 		s.Listen()
 	}()
 
+	time.Sleep(1 * time.Second)
+
 	client, err := NewClient(ProtocolTCP, "localhost:1337")
 
 	if err != nil {
@@ -111,5 +115,49 @@ func BenchmarkEchoServerSharedConnections(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		client.WriteData("hello", body)
 		client.ReadData()
+	}
+}
+
+func BenchmarkEchoServerIndividualConnections(b *testing.B) {
+	s, _ := NewServer(ProtocolTCP, "127.0.0.1:1337")
+	body := []byte("hello world")
+
+	s.AddRequestEndpoint("hello", func(meta Metadata, w io.Writer, r io.Reader) error {
+		w.Write(body)
+		return nil
+	})
+
+	go func() {
+		s.Listen()
+	}()
+
+	time.Sleep(1 * time.Second)
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		client, _ := NewClient(ProtocolTCP, "localhost:1337")
+		client.WriteData("hello", body)
+		client.ReadData()
+		client.Close()
+	}
+}
+
+func BenchmarkEchoServerHTTP(b *testing.B) {
+	go func() {
+		http.ListenAndServe("127.0.0.1:1337", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("hello"))
+		}))
+	}()
+
+	time.Sleep(1 * time.Second)
+
+	b.ResetTimer()
+
+	body := []byte("hello")
+
+	for n := 0; n < b.N; n++ {
+		buf := bytes.NewBuffer(body)
+		http.Post("http://127.0.0.1:1337", "text/plain", buf)
 	}
 }
