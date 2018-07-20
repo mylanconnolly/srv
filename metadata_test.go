@@ -32,7 +32,7 @@ func bigString(size int) string {
 
 // Warning; this doesn't sanitize the endpoint to make sure that it is not too
 // large.
-func makeHeader(endpointType byte, userID, timeout, size int64, endpoint string) []byte {
+func makeHeader(endpointType byte, userID, timeout, size int64, contentType, endpoint string) []byte {
 	b := make([]byte, headerSize)
 	ub := make([]byte, 8)
 	tb := make([]byte, 8)
@@ -53,8 +53,11 @@ func makeHeader(endpointType byte, userID, timeout, size int64, endpoint string)
 	for i, bb := range sb {
 		b[i+17] = bb
 	}
-	for i, bb := range []byte(endpoint) {
+	for i, bb := range []byte(contentType) {
 		b[i+25] = bb
+	}
+	for i, bb := range []byte(endpoint) {
+		b[i+125] = bb
 	}
 	return b
 }
@@ -74,14 +77,14 @@ func TestDecodeMetadataReader(t *testing.T) {
 		},
 		{
 			"Populated header 1",
-			bytes.NewBuffer(makeHeader(0, 123, 456, 789, "foo")),
-			Metadata{UserID: 123, Timeout: 456 * time.Millisecond, BodySize: 789, Endpoint: "foo"},
+			bytes.NewBuffer(makeHeader(0, 123, 456, 789, "text/plain", "foo")),
+			Metadata{UserID: 123, Timeout: 456 * time.Millisecond, BodySize: 789, ContentType: "text/plain", Endpoint: "foo"},
 			false,
 		},
 		{
 			"Populated header 1",
-			bytes.NewBuffer(makeHeader(1, MaxInt, 1972348976, 9817263487916234, "foo")),
-			Metadata{EndpointType: 1, UserID: MaxInt, Timeout: 1972348976 * time.Millisecond, BodySize: 9817263487916234, Endpoint: "foo"},
+			bytes.NewBuffer(makeHeader(1, MaxInt, 1972348976, 9817263487916234, "text/plain", "foo")),
+			Metadata{EndpointType: 1, UserID: MaxInt, Timeout: 1972348976 * time.Millisecond, BodySize: 9817263487916234, ContentType: "text/plain", Endpoint: "foo"},
 			false,
 		},
 	}
@@ -124,14 +127,14 @@ func TestDecodeMetadata(t *testing.T) {
 		},
 		{
 			"Populated header 1",
-			makeHeader(0, 123, 456, 789, "foo"),
-			Metadata{UserID: 123, Timeout: 456 * time.Millisecond, BodySize: 789, Endpoint: "foo"},
+			makeHeader(0, 123, 456, 789, "text/plain", "foo"),
+			Metadata{UserID: 123, Timeout: 456 * time.Millisecond, BodySize: 789, ContentType: "text/plain", Endpoint: "foo"},
 			false,
 		},
 		{
 			"Populated header 1",
-			makeHeader(1, MaxInt, 1972348976, 9817263487916234, "foo"),
-			Metadata{EndpointType: 1, UserID: MaxInt, Timeout: 1972348976 * time.Millisecond, BodySize: 9817263487916234, Endpoint: "foo"},
+			makeHeader(1, MaxInt, 1972348976, 9817263487916234, "text/plain", "foo"),
+			Metadata{EndpointType: 1, UserID: MaxInt, Timeout: 1972348976 * time.Millisecond, BodySize: 9817263487916234, ContentType: "text/plain", Endpoint: "foo"},
 			false,
 		},
 	}
@@ -172,18 +175,18 @@ func TestMetadataEncode(t *testing.T) {
 		},
 		{
 			"Populated metadata 1",
-			Metadata{UserID: 123, Timeout: 456 * time.Millisecond, BodySize: 789, Endpoint: "foo"},
-			makeHeader(0, 123, 456, 789, "foo"),
+			Metadata{UserID: 123, Timeout: 456 * time.Millisecond, BodySize: 789, ContentType: "text/plain", Endpoint: "foo"},
+			makeHeader(0, 123, 456, 789, "text/plain", "foo"),
 		},
 		{
 			"Populated metadata 2",
-			Metadata{EndpointType: 1, UserID: MaxInt, Timeout: 1098374 * time.Millisecond, BodySize: 7613947812643, Endpoint: "foo"},
-			makeHeader(1, MaxInt, 1098374, 7613947812643, "foo"),
+			Metadata{EndpointType: 1, UserID: MaxInt, Timeout: 1098374 * time.Millisecond, BodySize: 7613947812643, ContentType: "text/plain", Endpoint: "foo"},
+			makeHeader(1, MaxInt, 1098374, 7613947812643, "text/plain", "foo"),
 		},
 		{
 			"Truncated string",
-			Metadata{EndpointType: 1, UserID: MaxInt, Timeout: 1098374 * time.Millisecond, BodySize: 7613947812643, Endpoint: bigString(500)},
-			makeHeader(1, MaxInt, 1098374, 7613947812643, bigString(headerEndpointSize)),
+			Metadata{EndpointType: 1, UserID: MaxInt, Timeout: 1098374 * time.Millisecond, BodySize: 7613947812643, ContentType: "text/plain", Endpoint: bigString(500)},
+			makeHeader(1, MaxInt, 1098374, 7613947812643, "text/plain", bigString(headerEndpointSize)),
 		},
 	}
 	for _, tt := range tests {
@@ -215,7 +218,7 @@ func BenchmarkMetadataEncode(b *testing.B) {
 }
 
 func BenchmarkDecodeMetadataReader(b *testing.B) {
-	buf := makeHeader(1, 123, 456, 789, "hello")
+	buf := makeHeader(1, 123, 456, 789, "text/plain", "hello")
 
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
@@ -227,7 +230,7 @@ func BenchmarkDecodeMetadataReader(b *testing.B) {
 }
 
 func BenchmarkDecodeMetadata(b *testing.B) {
-	buf := makeHeader(1, 123, 456, 789, "hello")
+	buf := makeHeader(1, 123, 456, 789, "text/plain", "hello")
 
 	for n := 0; n < b.N; n++ {
 		DecodeMetadata(buf)

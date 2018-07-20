@@ -9,8 +9,9 @@ import (
 
 // Constants describing the shape of the header.
 const (
-	headerSize         = 256
-	headerEndpointSize = 231
+	headerSize            = 225
+	headerEndpointSize    = 100
+	headerContentTypeSize = 100
 )
 
 // Constants describing endpoint types for the purposes of request routing.
@@ -41,6 +42,10 @@ type Metadata struct {
 
 	// Endpoint, the name of the handler that should process this request.
 	Endpoint string
+
+	// ContentType, the name of the content type described in the request. This
+	// is mostly informational for the endpoints' use, and is optional.
+	ContentType string
 }
 
 // Encode is used to encode the metadata into a byte slice that can be used on
@@ -69,11 +74,17 @@ func (m Metadata) Encode() []byte {
 		b[i+17] = bb
 		ib[i] = '\x00'
 	}
+	for i, c := range m.ContentType {
+		if i >= headerContentTypeSize {
+			break
+		}
+		b[i+25] = byte(c)
+	}
 	for i, c := range m.Endpoint {
 		if i >= headerEndpointSize {
 			break
 		}
-		b[i+25] = byte(c)
+		b[i+125] = byte(c)
 	}
 	return b
 }
@@ -89,7 +100,8 @@ func DecodeMetadata(bytes []byte) (Metadata, error) {
 	m.UserID = int64(binary.LittleEndian.Uint64(bytes[1:9]))
 	m.Timeout = time.Millisecond * time.Duration(binary.LittleEndian.Uint64(bytes[9:17]))
 	m.BodySize = int64(binary.LittleEndian.Uint64(bytes[17:25]))
-	m.Endpoint = strings.Trim(string(bytes[25:headerSize]), "\x00")
+	m.ContentType = strings.Trim(string(bytes[25:25+headerContentTypeSize]), "\x00")
+	m.Endpoint = strings.Trim(string(bytes[125:headerSize]), "\x00")
 
 	return m, nil
 }
@@ -123,6 +135,14 @@ func DecodeMetadataReader(r io.Reader) (Metadata, error) {
 	}
 	m.BodySize = int64(binary.LittleEndian.Uint64(nbuf))
 
+	if _, err = r.Read(sbuf); err != nil {
+		return m, err
+	}
+	m.ContentType = strings.Trim(string(sbuf), "\x00")
+
+	for i := range sbuf { // Reset the string buffer for added safety.
+		sbuf[i] = 0
+	}
 	if _, err = r.Read(sbuf); err != nil {
 		return m, err
 	}

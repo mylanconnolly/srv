@@ -26,16 +26,17 @@ well enough in my basic testing.
 
 ### Header
 
-The header is 256 bytes long, consisting of the following header values, in
+The header is 225 bytes long, consisting of the following header values, in
 order:
 
-| Order | Size (bytes) | Type           | Description                                                         |
-| :---- | :----------- | :------------- | :------------------------------------------------------------------ |
-| 0     | 1            | Byte           | Endpoint type (request/response or streaming)                       |
-| 1     | 8            | 64-bit Integer | User ID for authentication (if applicable)                          |
-| 2     | 8            | 64-bit Integer | Timeout in milliseconds (used to set a timeout, if greater than 0)  |
-| 3     | 8            | 64-bit Integer | Size of the body (used for decoding purposes)                       |
-| 4     | 231          | String         | Name of the endpoint to handle the request (used to route requests) |
+| Position | Size (bytes) | Type           | Description                                                         |
+| :------- | :----------- | :------------- | :------------------------------------------------------------------ |
+| 0        | 1            | Byte           | Endpoint type (request/response or streaming)                       |
+| 1        | 8            | 64-bit Integer | User ID for authentication (if applicable)                          |
+| 2        | 8            | 64-bit Integer | Timeout in milliseconds (used to set a timeout, if greater than 0)  |
+| 3        | 8            | 64-bit Integer | Size of the body (used for decoding purposes)                       |
+| 4        | 100          | String         | Content type                                                        |
+| 5        | 100          | String         | Name of the endpoint to handle the request (used to route requests) |
 
 ### Endpoint Types
 
@@ -72,3 +73,4 @@ includes:
 - [ ] A callback for verifying authentication (we currently have very weak
       authentication support, consisting of a user ID).
 - [ ] A way to implement middleware.
+- [ ] Built-in compression support.
