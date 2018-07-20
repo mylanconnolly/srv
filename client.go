@@ -70,7 +70,7 @@ func (c *Client) WriteData(endpoint string, body []byte) (n int, err error) {
 	meta := Metadata{BodySize: int64(len(body)), Endpoint: endpoint}
 	req := meta.Encode()
 
-	return c.conn.Write(append(req, body...))
+	return c.Write(append(req, body...))
 }
 
 // WriteDataString is used as a convenience wrapper around the WriteData
@@ -93,7 +93,7 @@ func (c *Client) WriteDataReader(endpoint string, body io.Reader) (n int, err er
 	meta := Metadata{BodySize: bytes, Endpoint: endpoint}
 	req := meta.Encode()
 
-	return c.conn.Write(append(req, buf.Bytes()...))
+	return c.Write(append(req, buf.Bytes()...))
 }
 
 // Read is used to implement io.Reader. Operations on a closed connection result
@@ -110,9 +110,9 @@ func (c *Client) Read(b []byte) (n int, err error) {
 // ReadMeta is used to read the metadata from a connection. It returns the
 // metadata and an error, if one occurred.
 func (c *Client) ReadMeta() (meta Metadata, err error) {
-	header := make([]byte, 256)
+	header := make([]byte, headerSize)
 
-	if _, err = c.conn.Read(header); err != nil {
+	if _, err = c.Read(header); err != nil {
 		return meta, err
 	}
 	meta, err = DecodeMetadata(header)
@@ -131,7 +131,7 @@ func (c *Client) ReadMeta() (meta Metadata, err error) {
 // reference (describing the size of the body).
 func (c *Client) ReadBody(meta Metadata) (body []byte, err error) {
 	body = make([]byte, meta.BodySize)
-	_, err = c.conn.Read(body)
+	_, err = c.Read(body)
 
 	switch err {
 	case io.EOF:
